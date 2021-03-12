@@ -6,33 +6,33 @@ import csv
 ACCData=[0.0]*8
 GYROData=[0.0]*8
 AngleData=[0.0]*8          
-FrameState = 0            #通过0x后面的值判断属于哪一种情况
-Bytenum = 0               #读取到这一段的第几位
-CheckSum = 0              #求和校验位         
+FrameState = 0
+Bytenum = 0
+CheckSum = 0
 t = 0
 a = [0.0]*3
 w = [0.0]*3
 Angle = [0.0]*3
-def DueData(inputdata):   #新增的核心程序，对读取的数据进行划分，各自读到对应的数组里
-    global  FrameState    #在局部修改全局变量，要进行global的定义
+def DueData(inputdata):
+    global  FrameState
     global  Bytenum
     global  CheckSum
     global  a
     global  w
     global  Angle
     global  t
-    for data in inputdata:  #在输入的数据进行遍历
-        #Python2软件版本这里需要插入 data = ord(data)*****************************************************************************************************
-        if FrameState==0:   #当未确定状态的时候，进入以下判断
-            if data==0x55 and Bytenum==0: #0x55位于第一位时候，开始读取数据，增大bytenum
+    packet = {}
+    for data in inputdata:
+        if FrameState==0:
+            if data==0x55 and Bytenum==0:
                 CheckSum=data
                 Bytenum=1
                 continue
-            elif data==0x51 and Bytenum==1:#在byte不为0 且 识别到 0x51 的时候，改变frame
+            elif data==0x51 and Bytenum==1:
                 CheckSum+=data
                 FrameState=1
                 Bytenum=2
-            elif data==0x52 and Bytenum==1: #同理
+            elif data==0x52 and Bytenum==1:
                 CheckSum+=data
                 FrameState=2
                 Bytenum=2
@@ -40,19 +40,19 @@ def DueData(inputdata):   #新增的核心程序，对读取的数据进行划�
                 CheckSum+=data
                 FrameState=3
                 Bytenum=2
-        elif FrameState==1: # acc    #已确定数据代表加速度
+        elif FrameState==1:
             
-            if Bytenum<10:            # 读取8个数据
-                ACCData[Bytenum-2]=data # 从0开始
+            if Bytenum<10:
+                ACCData[Bytenum-2]=data
                 CheckSum+=data
                 Bytenum+=1
             else:
-                if data == (CheckSum&0xff):  #假如校验位正确
+                if data == (CheckSum&0xff):
                     a = get_acc(ACCData)
-                CheckSum=0                  #各数据归零，进行新的循环判断
+                CheckSum=0
                 Bytenum=0
                 FrameState=0
-        elif FrameState==2: # gyro
+        elif FrameState==2:
             
             if Bytenum<10:
                 GYROData[Bytenum-2]=data
@@ -64,7 +64,7 @@ def DueData(inputdata):   #新增的核心程序，对读取的数据进行划�
                 CheckSum=0
                 Bytenum=0
                 FrameState=0
-        elif FrameState==3: # angle
+        elif FrameState==3:
             
             if Bytenum<10:
                 AngleData[Bytenum-2]=data
@@ -74,17 +74,16 @@ def DueData(inputdata):   #新增的核心程序，对读取的数据进行划�
                 if data == (CheckSum&0xff):
                     Angle = get_angle(AngleData)
                     d = a+w+Angle
-                    print("a(g):%10.3f %10.3f %10.3f w(deg/s):%10.3f %10.3f %10.3f Angle(deg):%10.3f %10.3f %10.3f"%d)
-                    print("{0:.2f}".format(a[0]))
-                   # print("{0:.2f}".format(t))
-                   # with open('csv.csv', 'w') as csvfile:
-                   #     writer= csv.writer(csvfile)
-                   #     writer.writerow([a[0],t])
                     t = t + 0.01
                 CheckSum=0
                 Bytenum=0
                 FrameState=0
- 
+                packet['a'] = a
+                packet['w'] = w
+                packet['theta'] = Angle
+                packet['t'] = datetime.datetime.now().strftime('%y%m%d%H%M%S%f')
+                return packet
+
  
 def get_acc(datahex):  
     axl = datahex[0]                                        
@@ -151,17 +150,23 @@ def get_angle(datahex):
  
     return angle_x,angle_y,angle_z
  
- 
-if __name__=='__main__': 
-    # use raw_input function for python 2.x or input function for python3.x
-   # port = input('please input port No. such as com7:');                #Python2软件版本用    port = raw_input('please input port No. such as com7:');*****************************************************************************************************
-    #port = input('please input port No. such as com7:'));
-   # baud = int(input('please input baudrate(115200 for JY61 or 9600 for JY901):'))
-    ser = serial.Serial('/dev/ttyUSB0', 115200, timeout=0.5)  # ser = serial.Serial('com7',115200, timeout=0.5) 
-    print(ser.is_open)
-    #time = 0
-    while(1):
-        datahex = ser.read(33)
-        DueData(datahex)
-        #time = time + 0.01
-        print(datetime.datetime.now()," ")
+
+def discard_first_incomplete_packet(ser):
+    while ser.read(1) != b'U':
+        pass
+    while ser.read(1) != b'Q':
+        pass
+    ser.read(31)
+
+
+if __name__=='__main__':
+    ser = serial.Serial('/dev/ttyUSB0', 115200, timeout=0.5)  # ser = serial.Serial('com7',115200, timeout=0.5)
+    discard_first_incomplete_packet(ser)
+    with open('accel.csv', 'w') as csvfile:
+        fieldnames = ['t', 'a', 'w', 'theta']
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        while(1):
+            datahex = ser.read(33)
+            parsed_packet = DueData(datahex)
+            print(parsed_packet)
+            writer.writerow(parsed_packet)
