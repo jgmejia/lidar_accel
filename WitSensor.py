@@ -162,7 +162,7 @@ def discard_first_incomplete_packet(ser):
 if __name__=='__main__':
     ser = serial.Serial('/dev/ttyUSB0', 115200, timeout=0.5)  # ser = serial.Serial('com7',115200, timeout=0.5)
     discard_first_incomplete_packet(ser)
-    with open('accel.csv', 'w') as csvfile:
+    with open('accel.csv', 'a') as csvfile:
         fieldnames = ['t', 'a', 'w', 'theta']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         while(1):
