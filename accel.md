@@ -8,19 +8,19 @@
 
 ## Verification list:
 
-* Check python version:
+1. Check python version:
 
 ```
  $ python3 --version
 ```
 
-* Check that PySerial is installed:
+2. Check that PySerial is installed:
 
 ```
  $ python3 -c "import serial; print(serial.__version__)"
 ```
 
-* Check that accel is connected:
+3. Check that accel is connected:
 
 First check tty connection:
 
@@ -57,7 +57,7 @@ In this example, the port is /dev/ttyUSB0
 
 If something similar is displayed, we can assume that the accelerometer is connected.
 
-* Check disk free space
+4. Check disk free space
 
 ```
  $ df -h | grep ' /$'
@@ -73,7 +73,7 @@ Before running the system, make sure all the items in the verification list are 
 In order to start the system, simply run:
 
 ```
-$ python3 accel.py
+ $ python3 WitSensor.py
 ```
 
 The information from the sensor will be retrieved and decoded and finally be saved to accel.csv
@@ -83,9 +83,23 @@ The information from the sensor will be retrieved and decoded and finally be sav
 The fastest way to determine if the system is operational is by running:
 
 ```
-$ tail -f accel.csv
+ $ tail -f accel.csv
 ```
 
 This command will output in real time the contents of the output file. The file should be updated a few times per second, so new lines should be displayed in the terminal.  To finish this command press Ctrl+C.
 
+## Help (FAQ)
 
+- If no internet is available onsite, you can always install pyserial using the the file included in this repo:
+
+```
+ $ pip install pyserial-3.5-py2.py3-none-any.whl
+```
+
+- When running the system, I get the following error:
+
+```
+serial.serialutil.SerialException: [Errno 2] could not open port /dev/ttyUSB0: [Errno 2] No such file or directory: '/dev/ttyUSB0'
+```
+
+The most possible reason for this error is that the accelerometer was given another address by the OS.  Try changing the last `0` for any other device that was found in point 3 of the Verification List: e.g. `/dev/ttyUSB1`
